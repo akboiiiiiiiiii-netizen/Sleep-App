@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sleep App — Real (Local)</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --green:#4f6b58;
+      --light:#f7f6f2;
+      --accent:#f7b733;
+      --soft:#e8f0ea;
+      --shadow: rgba(0,0,0,0.12);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(#fff,#f4f6f5);color:#163a2f}
+    .topbar{display:flex;align-items:center;justify-content:space-between;background:var(--green);color:white;padding:16px 14px;position:sticky;top:0;z-index:3}
+    .topbar .center{text-align:center;flex:1}
+    .app-title{font-weight:700;letter-spacing:1px}
+    .slogan{font-size:12px;opacity:0.9}
+    .profile{width:36px;height:36px;border-radius:50%;background:white;padding:4px}
+    .hamburger{background:transparent;border:0;color:white;font-size:20px}
+    .container{max-width:460px;margin:18px auto;padding:0 14px}
+    .card{background:white;border-radius:12px;padding:14px;margin-bottom:16px;box-shadow:0 8px 22px var(--shadow)}
+    .fact-card h3{margin:0 0 8px;font-size:16px;text-align:center}
+    .fact{background:var(--light);padding:12px;border-radius:8px;text-align:center;margin:6px 12px}
+    .slideshow .slide-inner{border-radius:12px;overflow:hidden;height:170px;display:flex;align-items:center;justify-content:center;background:linear-gradient(#081a3a,#122a4a);color:white;position:relative}
+    .slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .5s ease, transform .5s ease;opacity:0;transform:translateY(6px)}
+    .slide.active{opacity:1;transform:translateY(0)}
+    .slide svg{width:100%;height:100%;object-fit:cover;display:block}
+    .dots{display:flex;justify-content:center;margin-top:10px;gap:8px}
+    .dot{width:9px;height:9px;border-radius:50%;background:#ccc;display:inline-block;cursor:pointer;border:1px solid rgba(0,0,0,0.06)}
+    .dot.active{background:#f4a261;box-shadow:0 1px 2px rgba(0,0,0,0.12)}
+    .nightly{display:flex;gap:12px;align-items:flex-start;padding-top:6px}
+    .left-col{flex:1}
+    .right-col{flex:1.25}
+    .cloud{display:block;background:transparent;border:2px solid #cfe6d6;padding:14px;border-radius:22px;max-width:170px;text-align:center;margin-bottom:8px;cursor:default}
+    .cloud input{width:100%;border:0;background:transparent;font-size:14px;text-align:center;outline:none}
+    .btn{background:var(--green);color:white;border:0;padding:9px 12px;border-radius:8px;cursor:pointer;margin-top:8px}
+    .btn.secondary{background:#3f5b46}
+    .btn.big{padding:10px 14px}
+    .stars{display:flex;gap:6px;font-size:22px;margin-top:8px}
+    .star{background:transparent;border:0;font-size:24px;cursor:pointer}
+    .challenge{display:flex;align-items:center;gap:12px;padding:12px;background:linear-gradient(90deg,#ffd89b,#f7b733);color:#402d01}
+    .challenge-left{flex:1}
+    .challenge-right{width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:42px}
+    .share textarea{width:100%;min-height:84px;border-radius:10px;border:1px solid #dcdcdc;padding:8px;margin-top:8px;resize:vertical}
+    .hint{font-size:12px;color:#fff;background:var(--green);padding:6px;border-radius:6px;margin:-12px -14px 12px -14px}
+    .dream-list{margin-top:10px;display:flex;flex-direction:column;gap:8px;max-height:160px;overflow:auto;padding-right:6px}
+    .dream-item{padding:8px;border-radius:8px;border:1px solid #eee;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.03)}
+    .muted{font-size:13px;color:#6a6a6a}
+    .small{font-size:13px}
+    @media (max-width:520px){
+      .nightly{flex-direction:column}
+      .right-col{width:100%}
+    }
+    /* tiny helper for toasts */
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:rgba(0,0,0,0.85);color:white;padding:8px 12px;border-radius:8px;z-index:50;font-size:14px;opacity:0;transition:opacity .2s ease}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left"><svg class="profile" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect rx="10" width="64" height="64" fill="#ffffff"/><circle cx="32" cy="22" r="10" fill="#cfe6d6"/><rect x="12" y="36" width="40" height="12" rx="6" fill="#cfe6d6"/></svg></div>
+    <div class="center">
+      <div class="app-title">SLEEPY</div>
+      <div class="slogan">rest well, live well</div>
+    </div>
+    <div class="right"><button class="hamburger" aria-label="menu">☰</button></div>
+  </header>
+
+  <main class="container">
+    <!-- Fact -->
+    <section class="fact-card card">
+      <h3>Sleep Fact of the Day</h3>
+      <p id="factText" class="fact">Loading fact…</p>
+    </section>
+
+    <!-- Slideshow -->
+    <section class="slideshow card" aria-label="slideshow">
+      <div class="slide-inner" id="slidesRoot">
+        <!-- Slides inserted by JS -->
+      </div>
+      <div class="dots" id="dots"></div>
+    </section>
+
+    <!-- Sleep entry + chart -->
+    <section class="nightly card">
+      <div class="left-col">
+        <label class="cloud">Hours Of Sleep:
+          <input id="hours" type="number" min="0" max="24" step="0.1" placeholder="e.g. 7.5" inputmode="decimal">
+        </label>
+        <button id="enterHours" class="btn">Enter</button>
+
+        <label class="cloud quality">Sleep Quality:</label>
+        <div id="stars" class="stars" aria-label="sleep quality rating">
+          <button class="star" data-value="1" aria-label="1 star">☆</button>
+          <button class="star" data-value="2" aria-label="2 stars">☆</button>
+          <button class="star" data-value="3" aria-label="3 stars">☆</button>
+          <button class="star" data-value="4" aria-label="4 stars">☆</button>
+          <button class="star" data-value="5" aria-label="5 stars">☆</button>
+        </div>
+        <div class="small muted">Your rating is saved locally.</div>
+      </div>
+
+      <div class="right-col">
+        <canvas id="sleepChart" width="400" height="220" aria-label="sleep hours chart"></canvas>
+      </div>
+    </section>
+
+    <!-- Challenge -->
+    <section class="challenge card">
+      <div class="challenge-left">
+        <h2>Snooze Challenge</h2>
+        <p class="small">Earn a perfect Snooze Score. Track nights and aim for consistent rest.</p>
+        <button class="btn big" id="join">Join Challenge</button>
+      </div>
+      <div class="challenge-right">💤</div>
+    </section>
+
+    <!-- Share Dreams -->
+    <section class="share card">
+      <h3>Share Your Dreams!</h3>
+      <p class="hint">Describe your last night's dream and save it locally or share with friends.</p>
+      <textarea id="dream" placeholder="Your Dream..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="submitDream" class="btn">Save Dream</button>
+        <button id="clearDreams" class="btn secondary">Clear All Dreams</button>
+      </div>
+      <div class="dream-list" id="dreamList" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // === LocalStorage keys & defaults ===
+    const KEYS = {
+      HOURS: 'sleepy_hours',         // JSON array of 7 numbers
+      STARS: 'sleepy_stars',         // number 1-5
+      DREAMS: 'sleepy_dreams',       // array of {text,ts}
+      JOINED: 'sleepy_joined'        // boolean
+    };
+
+    // Utility: toast
+    const toastEl = document.getElementById('toast');
+    function showToast(msg, t=1400){
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(()=> toastEl.classList.remove('show'), t);
+    }
+
+    // === Sleep facts (rotate by date) ===
+    const facts = [
+      "Adults need 7–9 hours of sleep per night for optimal health.",
+      "Sleep helps your brain consolidate memories and learn new information.",
+      "Blue light from screens can delay sleep onset—try a wind-down routine.",
+      "Consistent sleep times (even on weekends) improve sleep quality.",
+      "Naps can be refreshing — keep them under 30 minutes to avoid grogginess.",
+      "Deep sleep helps with physical recovery; REM sleep supports emotional processing.",
+      "A cool, dark, and quiet room helps you fall asleep faster."
+    ];
+    function setDailyFact() {
+      const d = new Date();
+      const idx = Math.floor(d / 86400000) % facts.length; // days since epoch mod len
+      document.getElementById('factText').textContent = facts[idx];
+    }
+
+    // === Slideshow setup ===
+    const slidesData = [
+      { title: "Calm Night", svg: `<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#061428"/><stop offset="1" stop-color="#11304e"/></linearGradient></defs><rect width="800" height="400" fill="url(#g1)"/><g fill="#fff" opacity="0.95"><circle cx="620" cy="80" r="36"/><circle cx="200" cy="130" r="90"/></g><g fill="#0b2b43" opacity="0.5"><ellipse cx="400" cy="350" rx="420" ry="60"/></g></svg>` },
+      { title: "Moon & Stars", svg: `<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g2" x1="0" x2="1"><stop offset="0" stop-color="#071a2b"/><stop offset="1" stop-color="#1b2f4b"/></linearGradient></defs><rect width="800" height="400" fill="url(#g2)"/><g fill="#fff"><path d="M540 100a48 48 0 1 1-62 72 64 64 0 1 0 62-72z"/></g><g fill="#8bb6d6" opacity="0.3"><circle cx="120" cy="60" r="3"/><circle cx="260" cy="30" r="2.5"/><circle cx="340" cy="90" r="3.2"/></g></svg>` },
+      { title: "Cozy Bed", svg: `<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g3" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0a1833"/><stop offset="1" stop-color="#153250"/></linearGradient></defs><rect width="800" height="400" fill="url(#g3)"/><g fill="#fff" opacity="0.95"><rect x="120" y="220" rx="30" width="560" height="120"/><rect x="160" y="160" rx="18" width="200" height="86" fill="#cfe6d6"/><rect x="420" y="160" rx="18" width="200" height="86" fill="#cfe6d6"/></g></svg>` }
+    ];
+    let slideIndex = 0;
+    let slideTimer = null;
+    function buildSlides() {
+      const root = document.getElementById('slidesRoot');
+      const dots = document.getElementById('dots');
+      root.innerHTML = '';
+      dots.innerHTML = '';
+      slidesData.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'slide' + (i===0 ? ' active' : '');
+        div.innerHTML = s.svg;
+        div.setAttribute('role','group');
+        div.setAttribute('aria-label', s.title);
+        root.appendChild(div);
+
+        const dot = document.createElement('button');
+        dot.className = 'dot' + (i===0 ? ' active' : '');
+        dot.setAttribute('aria-label','show slide '+(i+1));
+        dot.addEventListener('click', ()=> goToSlide(i));
+        dots.appendChild(dot);
+      });
+    }
+    function showSlide(i) {
+      const slides = document.querySelectorAll('.slide');
+      const dots = document.querySelectorAll('.dot');
+      slides.forEach((el, idx)=> el.classList.toggle('active', idx===i));
+      dots.forEach((d, idx)=> d.classList.toggle('active', idx===i));
+      slideIndex = i;
+    }
+    function goToSlide(i) {
+      showSlide(i);
+      restartSlideshow();
+    }
+    function nextSlide() {
+      const i = (slideIndex + 1) % slidesData.length;
+      showSlide(i);
+    }
+    function restartSlideshow() {
+      if (slideTimer) clearInterval(slideTimer);
+      slideTimer = setInterval(nextSlide, 3000);
+    }
+
+    // === Chart and sleep hours persistence ===
+    const defaultHours = [6,7,5.5,6.5,7.2,8,8.5]; // 7 days
+    function loadHours(){
+      try {
+        const raw = localStorage.getItem(KEYS.HOURS);
+        if(!raw) return [...defaultHours];
+        const parsed = JSON.parse(raw);
+        if(!Array.isArray(parsed) || parsed.length !== 7) return [...defaultHours];
+        return parsed.map(v => typeof v === 'number' ? v : 0);
+      } catch(e) { return [...defaultHours]; }
+    }
+    function saveHours(arr){
+      localStorage.setItem(KEYS.HOURS, JSON.stringify(arr));
+    }
+
+    let chart;
+    function buildChart(initialData){
+      const ctx = document.getElementById('sleepChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+          datasets:[{
+            label:'Hours of Sleep',
+            data: initialData,
+            fill:false,
+            tension:0.35,
+            borderColor:'#4f6b58',
+            pointRadius:4,
+            pointBackgroundColor:'#4f6b58',
+            borderWidth:2
+          }]
+        },
+        options:{
+          plugins:{legend:{display:false}},
+          scales:{y:{min:0,max:12,ticks:{stepSize:1}}},
+          responsive:true,
+          maintainAspectRatio:false
+        }
+      });
+    }
+
+    // === Stars (sleep quality) persistence ===
+    function loadStars(){
+      const v = parseInt(localStorage.getItem(KEYS.STARS));
+      if(v>=1 && v<=5) return v;
+      return 4;
+    }
+    function saveStars(v){ localStorage.setItem(KEYS.STARS, String(v)); }
+
+    function paintStars(rating){
+      const stars = document.querySelectorAll('.star');
+      stars.forEach(s=> s.textContent = Number(s.dataset.value) <= rating ? '★' : '☆');
+      // accessibility hint
+      stars.forEach(s=> s.setAttribute('aria-pressed', Number(s.dataset.value) <= rating ? 'true' : 'false'));
+    }
+
+    // === Dreams persistence ===
+    function loadDreams(){
+      try {
+        const raw = localStorage.getItem(KEYS.DREAMS);
+        if(!raw) return [];
+        const arr = JSON.parse(raw);
+        if(!Array.isArray(arr)) return [];
+        return arr;
+      } catch(e){ return []; }
+    }
+    function saveDreams(arr){
+      localStorage.setItem(KEYS.DREAMS, JSON.stringify(arr));
+    }
+
+    // === Challenge joined ===
+    function isJoined(){ return localStorage.getItem(KEYS.JOINED) === '1'; }
+    function setJoined(v){ localStorage.setItem(KEYS.JOINED, v ? '1' : '0'); }
+
+    // === UI wireup ===
+    document.addEventListener('DOMContentLoaded', ()=>{
+      // fact
+      setDailyFact();
+
+      // slides
+      buildSlides();
+      restartSlideshow();
+
+      // chart
+      const hoursArr = loadHours();
+      buildChart(hoursArr);
+
+      // stars
+      const starVal = loadStars();
+      paintStars(starVal);
+
+      // attach star handlers
+      document.querySelectorAll('.star').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const v = Number(btn.dataset.value);
+          saveStars(v);
+          paintStars(v);
+          showToast('Sleep quality saved');
+        });
+      });
+
+      // Enter hours
+      document.getElementById('enterHours').addEventListener('click', ()=>{
+        const input = document.getElementById('hours');
+        const val = parseFloat(input.value);
+        if(isNaN(val) || val < 0 || val > 24) {
+          showToast('Enter a valid hours value (0–24)');
+          return;
+        }
+        // push to end, shift first
+        const arr = loadHours();
+        arr.shift();
+        arr.push(Number(val));
+        saveHours(arr);
+        chart.data.datasets[0].data = arr;
+        chart.update();
+        input.value = '';
+        showToast('Hours saved locally');
+      });
+
+      // Join challenge button
+      const joinBtn = document.getElementById('join');
+      function refreshJoinUI(){
+        if(isJoined()){
+          joinBtn.textContent = 'Joined ✓';
+          joinBtn.disabled = true;
+          joinBtn.classList.add('secondary');
+        } else {
+          joinBtn.textContent = 'Join Challenge';
+          joinBtn.disabled = false;
+          joinBtn.classList.remove('secondary');
+        }
+      }
+      joinBtn.addEventListener('click', ()=>{
+        setJoined(true);
+        refreshJoinUI();
+        showToast('You joined the Snooze Challenge');
+      });
+      refreshJoinUI();
+
+      // Dreams
+      const dreamListEl = document.getElementById('dreamList');
+      function renderDreams(){
+        const arr = loadDreams();
+        dreamListEl.innerHTML = arr.length ? '' : '<div class="muted">No saved dreams yet.</div>';
+        arr.slice().reverse().forEach(item=>{
+          const d = document.createElement('div');
+          d.className = 'dream-item';
+          const when = new Date(item.ts);
+          d.innerHTML = `<div class="small muted">${when.toLocaleString()}</div><div style="margin-top:6px">${escapeHtml(item.text)}</div>`;
+          dreamListEl.appendChild(d);
+        });
+      }
+      document.getElementById('submitDream').addEventListener('click', ()=>{
+        const t = document.getElementById('dream').value.trim();
+        if(!t){ showToast('Write something first'); return; }
+        const arr = loadDreams();
+        arr.push({text: t, ts: Date.now()});
+        saveDreams(arr);
+        document.getElementById('dream').value = '';
+        renderDreams();
+        showToast('Dream saved locally');
+      });
+      document.getElementById('clearDreams').addEventListener('click', ()=>{
+        if(!confirm('Clear all saved dreams?')) return;
+        saveDreams([]);
+        renderDreams();
+        showToast('Dreams cleared');
+      });
+      renderDreams();
+
+      // allow clicking dots to jump slides (already wired)
+      // accessibility: keyboard for slides
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'ArrowLeft') { goToSlide((slideIndex + slidesData.length - 1) % slidesData.length); }
+        if(e.key === 'ArrowRight'){ goToSlide((slideIndex + 1) % slidesData.length); }
+      });
+    });
+
+    // helper: escape html
+    function escapeHtml(s){ return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+
+    // set daily fact on load, but also if user keeps page open past midnight, update at next midnight
+    setDailyFact();
+    // schedule next midnight update
+    (function scheduleMidnightUpdate(){
+      const now = new Date();
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,2);
+      const ms = tomorrow - now;
+      setTimeout(()=>{ setDailyFact(); scheduleMidnightUpdate(); }, ms);
+    })();
+
+    // ensure slideshow stops/starts on visibility change
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden){ if(slideTimer) clearInterval(slideTimer); }
+      else restartSlideshow();
+    });
+  </script>
+</body>
+</html>
